@@ -33,7 +33,10 @@ type GoldpingerPod struct {
 	Name   string // Name is the name of the pod
 	PodIP  string // PodIP is the IP address of the pod
 	HostIP string // HostIP is the IP address of the host where the pod lives
+	Annotations map[string]string // Annotations that we want to monitor.
 }
+
+
 
 func getPodNamespace() string {
 	b, err := ioutil.ReadFile("/var/run/secrets/kubernetes.io/serviceaccount/namespace")
@@ -43,6 +46,38 @@ func getPodNamespace() string {
 	}
 	namespace := string(b)
 	return namespace
+}
+
+func getNodeAnnotations(p v1.Pod) map[string]string {
+
+	ret := make(map[string]string)
+
+	// We do not need to make a call to the API if we are looking to label pods with any node annotations.
+	if len(GoldpingerConfig.Annotations) == 0 {
+		return ret
+	}
+	
+	timer := GetLabeledKubernetesCallsTimer()
+	node, err := GoldpingerConfig.KubernetesClient.CoreV1().Nodes().Get(context.TODO(), p.Spec.NodeName, metav1.GetOptions{})
+	
+	if err != nil {
+		zap.L().Error("error getting node (pod annotations)", zap.Error(err))
+		CountError("kubernetes_api")
+		return ret
+		// TODO: decide on error handling, need to look at the rest of the package in detail to conform to how the error is being handled.
+
+	} else {
+		timer.ObserveDuration()
+	}
+
+	// NOTE: Annotations is optional. 
+	for _, annot := range GoldpingerConfig.Annotations {
+		if v, found := node.ObjectMeta.Annotations[annot]; found {
+			ret[annot] = v
+		}
+	}
+	return ret
+
 }
 
 // getHostIP gets the IP of the host where the pod is scheduled. If UseIPv6 is enabled then we need to check
@@ -75,6 +110,8 @@ func getHostIP(p v1.Pod) string {
 	nodeIPMap[p.Spec.NodeName] = hostIP
 	return hostIP
 }
+
+
 
 // getPodIP will get an IPv6 IP from PodIPs if the UseIPv6 config is set, otherwise just return the object PodIP
 func getPodIP(p v1.Pod) string {
@@ -114,6 +151,7 @@ func GetAllPods() map[string]*GoldpingerPod {
 			Name:   pod.Name,
 			PodIP:  getPodIP(pod),
 			HostIP: getHostIP(pod),
+			Annotations: getNodeAnnotations(pod),
 		}
 	}
 	return podMap

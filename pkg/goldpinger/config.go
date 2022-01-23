@@ -38,6 +38,7 @@ var GoldpingerConfig = struct {
 
 	IPVersions []string `long:"ip-versions" description:"The IP versions to use (space delimited). Possible values are 4 and 6 (defaults to 4)." env:"IP_VERSIONS" env-delim:" "`
 
+	Annotations []string `long:"annotations-to-fetch" description:"The annotations that we wish to fetch from the pod API" env:"ANNOTATIONS" env-delim:" "`
 	// Timeouts
 	PingTimeoutMs     int64 `long:"ping-timeout-ms" description:"The timeout in milliseconds for a ping call to other goldpinger pods" env:"PING_TIMEOUT_MS" default:"300"`
 	CheckTimeoutMs    int64 `long:"check-timeout-ms" description:"The timeout in milliseconds for a check call to other goldpinger pods" env:"CHECK_TIMEOUT_MS" default:"1000"`
